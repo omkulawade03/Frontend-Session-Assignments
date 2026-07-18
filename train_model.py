@@ -1,81 +1,129 @@
-# ==========================================================
-# Ford Car Price Predictor
-# train_model.py
-# ==========================================================
-
-# ==========================================================
-# Q1. Import Required Libraries
-# ==========================================================
+# =====================================
+# Import Libraries
+# =====================================
 
 import pandas as pd
-import joblib
 
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
+# =====================================
+# Load Dataset
+# =====================================
 
+df = pd.read_csv("amazon.csv")
 
-# ==========================================================
-# Q2. Load Dataset
-# ==========================================================
-
-df = pd.read_csv("ford_car_dataset.csv")
+# =====================================
+# Display First 5 Rows
+# =====================================
 
 print(df.head())
+
+# =====================================
+# Dataset Information
+# =====================================
 
 print("\nDataset Information:\n")
 print(df.info())
 
+# =====================================
+# Column Names
+# =====================================
+
 print("\nColumn Names:\n")
 print(df.columns)
+
+# =====================================
+# Dataset Shape
+# =====================================
 
 print("\nDataset Shape:")
 print(df.shape)
 
+# =====================================
+# Data Cleaning
+# =====================================
 
-# ==========================================================
-# Q3. One-Hot Encoding
-# ==========================================================
-
-df = pd.get_dummies(
-    df,
-    columns=["model", "transmission", "fuelType"]
+# Remove ₹ and comma from price columns
+df["discounted_price"] = (
+    df["discounted_price"]
+    .str.replace("₹", "", regex=False)
+    .str.replace(",", "", regex=False)
+    .astype(float)
 )
 
-print("\nAfter One-Hot Encoding:")
+df["actual_price"] = (
+    df["actual_price"]
+    .str.replace("₹", "", regex=False)
+    .str.replace(",", "", regex=False)
+    .astype(float)
+)
+
+# Remove % symbol
+df["discount_percentage"] = (
+    df["discount_percentage"]
+    .str.replace("%", "", regex=False)
+    .astype(float)
+)
+
+# Convert rating to numeric
+df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
+
+# Remove commas from rating_count
+df["rating_count"] = (
+    df["rating_count"]
+    .str.replace(",", "", regex=False)
+)
+
+df["rating_count"] = pd.to_numeric(
+    df["rating_count"],
+    errors="coerce"
+)
+
+# Remove missing values
+df.dropna(inplace=True)
+
+print("\nAfter Cleaning:")
 print(df.head())
 
-print("\nNew Shape:")
-print(df.shape)
+print("\nData Types:")
+print(df.dtypes)
 
 
-# ==========================================================
-# Q4. Feature Selection
-# ==========================================================
+# =====================================
+# Feature Selection
+# =====================================
 
-X = df.drop("price", axis=1)
+# Select Input Features
+X = df[[
+    "actual_price",
+    "discount_percentage",
+    "rating",
+    "rating_count"
+]]
 
-y = df["price"]
+# Target Column
+y = df["discounted_price"]
 
-print("\nFeatures Shape :", X.shape)
-print("Target Shape :", y.shape)
+print("\nFeatures Shape:", X.shape)
+print("Target Shape:", y.shape)
+
+print("\nFirst 5 Features:")
+print(X.head())
 
 print("\nFirst 5 Target Values:")
 print(y.head())
 
 
-# ==========================================================
-# Q5. Train-Test Split
-# ==========================================================
+# =====================================
+# Train-Test Split
+# =====================================
 
+from sklearn.model_selection import train_test_split
+
+# Split the data into Training and Testing sets
 X_train, X_test, y_train, y_test = train_test_split(
-
     X,
     y,
-    test_size=0.20,
+    test_size=0.2,
     random_state=42
-
 )
 
 print("\nTraining Data Shape")
@@ -87,76 +135,73 @@ print("X_test :", X_test.shape)
 print("y_test :", y_test.shape)
 
 
-# ==========================================================
-# Q6. Feature Scaling
-# ==========================================================
+# =====================================
+# Feature Scaling
+# =====================================
 
+from sklearn.preprocessing import StandardScaler
+
+# Create StandardScaler object
 scaler = StandardScaler()
 
-numerical_columns = [
-    "year",
-    "mileage",
-    "tax",
-    "mpg",
-    "engineSize"
-]
+# Scale Training Data
+X_train = scaler.fit_transform(X_train)
 
-X_train[numerical_columns] = scaler.fit_transform(
-    X_train[numerical_columns]
-)
-
-X_test[numerical_columns] = scaler.transform(
-    X_test[numerical_columns]
-)
+# Scale Testing Data
+X_test = scaler.transform(X_test)
 
 print("\nScaling Completed Successfully!")
 
 
-# ==========================================================
-# Q7. Train Linear Regression Model
-# ==========================================================
+# =====================================
+# Model Training
+# =====================================
 
+from sklearn.linear_model import LinearRegression
+
+# Create Linear Regression Model
 model = LinearRegression()
 
+# Train the Model
 model.fit(X_train, y_train)
 
 print("\nModel Training Completed Successfully!")
 
+# =====================================
+# Prediction and Accuracy
+# =====================================
 
-# ==========================================================
-# Q8. Prediction
-# ==========================================================
+from sklearn.metrics import r2_score
 
+# Make Predictions
 y_pred = model.predict(X_test)
 
-print("\nFirst 5 Predictions:")
+# Calculate R2 Score
+score = r2_score(y_test, y_pred)
 
+print("\nFirst 5 Predictions:")
 print(y_pred[:5])
 
+print("\nR2 Score:", round(score, 4))
 
-# ==========================================================
-# Q9. Model Evaluation (R2 Score)
-# ==========================================================
+# =====================================
+# Save Model and Objects
+# =====================================
 
-r2 = r2_score(y_test, y_pred)
+import joblib
 
-print("\nR2 Score :", round(r2, 4))
+# Save Trained Model
+joblib.dump(model, "amazon_model.pkl")
 
+# Save Scaler
+joblib.dump(scaler, "amazon_scaler.pkl")
 
-# ==========================================================
-# Q10. Save Model Files
-# ==========================================================
+# Save Column Names
+joblib.dump(X.columns.tolist(), "amazon_columns.pkl")
 
-joblib.dump(model, "LR_model.pkl")
+print("\nModel Saved Successfully!")
 
-joblib.dump(scaler, "scaler.pkl")
-
-joblib.dump(X.columns.tolist(), "columns.pkl")
-
-print("\nFiles Saved Successfully!")
-
-print("✔ LR_model.pkl")
-
-print("✔ scaler.pkl")
-
-print("✔ columns.pkl")
+print("Files Created:")
+print("✔ amazon_model.pkl")
+print("✔ amazon_scaler.pkl")
+print("✔ amazon_columns.pkl")
